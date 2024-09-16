@@ -1,0 +1,28 @@
+<script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const category = urlParams.get('category');
+
+    fetch('/traffic/normal')
+        .then(response => response.json())
+        .then(data => {
+            const tableBody = document.getElementById('normalTrafficTableBody');
+            data.forEach(packet => {
+                const srcIP = (packet._source.layers.ip || packet._source.layers.ipv6)['ip.src'] || 'N/A';
+                const destIP = (packet._source.layers.ip || packet._source.layers.ipv6)['ip.dst'] || 'N/A';
+                
+                // Filter based on VirusTotal analysis
+                const isThreat = packet.vtAnalysis && (packet.vtAnalysis.src.malicious > 0 || packet.vtAnalysis.dst.malicious > 0);
+                if ((category === 'regular' && !isThreat) || (category === 'threats' && isThreat)) {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${packet._source.layers.frame['frame.time']}</td>
+                        <td><a href="/ipLocationDetails.html?ip=${srcIP}" target="_blank">${srcIP}</a></td>
+                        <td><a href="/ipLocationDetails.html?ip=${destIP}" target="_blank">${destIP}</a></td>
+                        <td>${(packet._source.layers.ip || packet._source.layers.ipv6)['ip.proto'] || 'Unknown'}</td>
+                        <td>${packet._source.layers.frame['frame.protocols']}</td>
+                    `;
+                    tableBody.appendChild(row);
+                }
+            });
+        });
+</script>

@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Upload and Analysis</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body, html {
+            height: 100%;
+            margin: 0;
+            font-family: 'Calibri', 'Arial', sans-serif;
+            color: #fff;
+            overflow-x: hidden;
+            overflow-y: auto; /* Allow vertical scrolling */
+        }
+
+        .bg-image {
+            position: fixed; /* Change to fixed */
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            z-index: -1;
+            opacity: 0.8;
+        }
+
+        .content {
+            position: relative; /* Change to relative */
+            text-align: center;
+            color: white;
+            z-index: 1;
+            max-width: 90%;
+            width: 500px;
+            margin: 50px auto; /* Center the content and add some top margin */
+        }
+
+        .box {
+            background: rgba(0, 0, 0, 0.6);
+            padding: 20px;
+            padding-bottom: 50px;
+            border-radius: 10px;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.5);
+            display: inline-block;
+            text-align: center;
+            width: 100%;
+        }
+
+        h1 {
+            margin-bottom: 20px;
+            font-size: 2.5em;
+            font-family: 'Times New Roman', Times, serif;
+            color: #4c00ff;
+        }
+
+        form {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background: none;
+            padding: 0;
+            border: none;
+            font-family: 'Times New Roman', Times, serif;
+        }
+
+        input[type="file"] {
+            display: block;
+            margin-bottom: 30px;
+            padding: 10px;
+            padding-right: 10px;
+            padding-left: 55px;
+            font-size: 1em;
+            border: 2px solid #00bfff;
+            border-radius: 5px;
+            background: rgba(0, 0, 0, 0.3);
+            color: #fff;
+            width: 100%;
+            max-width: 300px;
+            text-align: center;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 1em;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            background-color: #00bfff;
+            color: white;
+            transition: background-color 0.3s ease;
+            width: 100%;
+            max-width: 400px;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        button:hover {
+            background-color: #009acd;
+        }
+
+        #chartContainer {
+            width: 80%;
+            max-width: 600px;
+            height: 400px;
+            margin: 20px auto;
+            display: none;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+
+        th, td {
+            border: 1px solid #00bfff;
+            padding: 8px;
+            text-align: left;
+        }
+    </style>
+</head>
+<body>
+    <div class="content">
+        <h1>Upload a File for Analysis</h1>
+        <form id="uploadForm" action="/upload" method="post" enctype="multipart/form-data">
+            <input type="file" name="file" required>
+            <button type="submit">Upload and Analyze</button>
+        </form>
+        <div id="chartContainer" class="hidden">
+            <canvas id="barChart"></canvas>
+        </div>
+    </div>
+    <script>
+        document.getElementById('uploadForm').addEventListener('submit', function(event) {
+            event.preventDefault();
+            const formData = new FormData(this);
+            fetch('/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                const ctx = document.getElementById('barChart').getContext('2d');
+                const barChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Normal Traffic', 'Encrypted Traffic'],
+                        datasets: [{
+                            label: 'Traffic Analysis',
+                            data: [data.normal, data.encrypted],
+                            backgroundColor: ['#36a2eb', '#ffce56']
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        onClick: (event, elements) => {
+                            if (elements.length > 0) {
+                                const elementIndex = elements[0].index;
+                                const trafficType = elementIndex === 0 ? 'normal' : 'encrypted';
+                                window.location.href =` /trafficDetails.html?type=${trafficType}`;
+                            }
+                        }
+                    }
+                });
+                document.getElementById('chartContainer').style.display = 'block';
+            })
+            .catch(error => console.error('Error:', error));
+        });
+    </script>
+</body>
+</html>

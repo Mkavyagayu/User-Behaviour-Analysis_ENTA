@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Traffic Details</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        #pieChartContainer {
+            width: 300px; /* Reduced from 400px */
+            height: 300px; /* Reduced from 400px */
+            margin: 20px auto;
+        }
+        #trafficTable {
+            display: none;
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        .threat-high {
+            color: red;
+            font-weight: bold;
+        }
+        .threat-medium {
+            color: orange;
+        }
+        .threat-low {
+            color: green;
+        }
+        #trafficTable th, #trafficTable td {
+            border: 1px solid black;
+            padding: 8px;
+            text-align: left;
+        }
+        .ip-link {
+            color: blue;
+            cursor: pointer;
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <h1>Traffic Details</h1>
+    <div id="pieChartContainer">
+        <canvas id="pieChart"></canvas>
+    </div>
+    <div id="errorMessage" style="color: red;"></div>
+    <table id="trafficTable">
+        <thead>
+            <tr>
+                <th>Timestamp</th>
+                <th>Source IP</th>
+                <th>Destination IP</th>
+                <th>Protocol</th>
+                <th>Info</th>
+                <th>Threat</th>
+            </tr>
+        </thead>
+        <tbody id="trafficTableBody"></tbody>
+    </table>
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const trafficType = urlParams.get('type');
+        let trafficData;
+
+        fetch(`/traffic/${trafficType}`)
+            .then(response => response.json())
+            .then(data => {
+                console.log('Received data:', data);
+                trafficData = data;
+
+                if (data.regularTraffic.length === 0 && data.threatTraffic.length === 0) {
+                    document.getElementById('errorMessage').textContent = 'No traffic data available.';
+                    return;
+                }
+
+                const ctx = document.getElementById('pieChart').getContext('2d');
+                const pieChart = new Chart(ctx, {
+                    type: 'pie',
+                    data: {
+                        labels: ['Regular Traffic', 'Threat Traffic'],
+                        datasets: [{
+                            data: [data.regularTraffic.length, data.threatTraffic.length],
+                            backgroundColor: ['#4bc0c0', '#ff6384']
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom'
+                            }
+                        },
+                        onClick: (event, elements) => {
+                            if (elements.length > 0) {
+                                const elementIndex = elements[0].index;
+                                displayTrafficDetails(elementIndex === 0 ? data.regularTraffic : data.threatTraffic);
+                            }
+                        }
+                    }
+                });
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                document.getElementById('errorMessage').textContent = 'Error loading traffic data. Please try again.';
+            });
+
+        function displayTrafficDetails(traffic) {
+            const tableBody = document.getElementById('trafficTableBody');
+            tableBody.innerHTML = '';
+
+            traffic.forEach(packet => {
+                const row = document.createElement('tr');
+                const ipLayer = packet._source.layers['ip'] || packet._source.layers['ipv6'];
+                const srcIP = ipLayer['ip.src'] || ipLayer['ipv6.src'] || 'N/A';
+                const dstIP = ipLayer['ip.dst'] || ipLayer['ipv6.dst'] || 'N/A';
+
+                let threatCell = '';
+                if (packet.threatInfo) {
+                    let threatClass = 'threat-low';
+                    if (packet.threatInfo.score > 75) {
+                        threatClass = 'threat-high';
+                    } else if (packet.threatInfo.score > 50) {
+                        threatClass = 'threat-medium';
+                    }
+                    threatCell = `
+                        <span class="${threatClass}">
+                            Score: ${packet.threatInfo.score}<br>
+                            Types: ${packet.threatInfo.types}<br>
+                            Last Reported: ${packet.threatInfo.lastReportedAt || 'N/A'}
+                        </span>
+                    `;
+                } else {
+                    threatCell = 'No threats detected';
+                }
+
+                row.innerHTML = `
+                    <td>${packet._source.layers.frame['frame.time'] || 'N/A'}</td>
+                    <td><span class="ip-link" data-ip="${srcIP}">${srcIP}</span></td>
+                    <td><span class="ip-link" data-ip="${dstIP}">${dstIP}</span></td>
+                    <td>${ipLayer['ip.proto'] || 'Unknown'}</td>
+                    <td>${packet._source.layers.frame['frame.protocols'] || 'N/A'}</td>
+                    <td>${threatCell}</td>
+                `;
+                tableBody.appendChild(row);
+            });
+
+            document.querySelectorAll('.ip-link').forEach(link => {
+                link.addEventListener('click', () => {
+                    const ip = link.dataset.ip;
+                    window.open(`/ipLocationDetails.html?ip=${ip}`, '_blank');
+                });
+            });
+
+            document.getElementById('trafficTable').style.display = 'table';
+        }
+    </script>
+</body>
+</html>

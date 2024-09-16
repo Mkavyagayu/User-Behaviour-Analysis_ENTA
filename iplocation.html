@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IP Location Details</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <style>
+        #map {
+            height: 500px;
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+    <h1>IP Location Details</h1>
+    <div id="map"></div>
+    <div id="locationDetails"></div>
+
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script>
+        async function fetchGeolocation(ip) {
+            const response = await fetch(`/ip-location/${ip}`);
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        }
+
+        function initializeMap(latitude, longitude, locationDetails) {
+            const map = L.map('map').setView([latitude, longitude], 13);
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+
+            L.marker([latitude, longitude]).addTo(map)
+                .bindPopup(locationDetails)
+                .openPopup();
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const ip = urlParams.get('ip');
+
+            if (ip) {
+                try {
+                    const data = await fetchGeolocation(ip);
+
+                    const locationDetails = `
+                        <h2>IP Address: ${data.ip}</h2>
+                        <p><b>City:</b> ${data.city}</p>
+                        <p><b>Region:</b> ${data.state_prov}</p>
+                        <p><b>Country:</b> ${data.country_name}</p>
+                        <p><b>ISP:</b> ${data.isp}</p>
+                    `;
+
+                    document.getElementById('locationDetails').innerHTML = locationDetails;
+
+                    initializeMap(data.latitude, data.longitude, locationDetails);
+                } catch (error) {
+                    console.error('Error fetching IP location:', error);
+                    document.getElementById('locationDetails').innerHTML = 'Error loading location details.';
+                }
+            } else {
+                document.getElementById('locationDetails').innerHTML = 'No IP address provided.';
+            }
+        });
+    </script>
+</body>
+</html>
